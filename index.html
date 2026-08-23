@@ -1,0 +1,22 @@
+<script>
+let currentSlide = 0;
+const slides = document.querySelectorAll('.carousel-slide');
+const slideInterval = 4000; // Changes image safely every 4 seconds
+
+function nextSlide() {
+    if (slides.length === 0) return;
+    slides[currentSlide].classList.remove('active');
+    currentSlide = (currentSlide + 1) % slides.length;
+    slides[currentSlide].classList.add('active');
+}
+
+// Start auto-rotation
+let timer = setInterval(nextSlide, slideInterval);
+
+// Pause slideshow when user touches or clicks the hero banner
+const container = document.querySelector('.carousel-container');
+if (container) {
+    container.addEventListener('mouseenter', () => clearInterval(timer));
+    container.addEventListener('mouseleave', () => { timer = setInterval(nextSlide, slideInterval); });
+}
+</script>
