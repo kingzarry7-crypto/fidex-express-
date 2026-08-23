@@ -2,18 +2,7 @@
   "rewrites": [
     {
       "source": "/",
-      "destination": "/Index.html"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store"
-        }
-      ]
+      "destination": "/index.html"
     }
   ]
 }
