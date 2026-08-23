@@ -1,0 +1,2793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Fidex Express | Shipment Tracking</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+  >
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  >
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    .bg-brand-purple {
+      background-color: #4D148C;
+    }
+
+    .text-brand-purple {
+      color: #4D148C;
+    }
+
+    .bg-brand-orange {
+      background-color: #FF6600;
+    }
+
+    .hover-brand-orange:hover {
+      background-color: #E65C00;
+    }
+
+    .border-brand-purple {
+      border-color: #4D148C;
+    }
+
+    #map {
+      height: 420px;
+      width: 100%;
+      border-radius: 12px;
+      z-index: 1;
+    }
+
+    .step-line {
+      position: absolute;
+      left: 11px;
+      top: 25px;
+      bottom: -25px;
+      width: 2px;
+      background: #e5e7eb;
+      z-index: 0;
+    }
+
+    .step-line-active {
+      background: #4D148C;
+    }
+
+    .truck-marker {
+      font-size: 28px;
+      line-height: 28px;
+      text-align: center;
+      filter:
+        drop-shadow(0 2px 3px rgba(0,0,0,.35));
+    }
+
+    .pulse-marker {
+      width: 18px;
+      height: 18px;
+      background: #FF6600;
+      border: 3px solid white;
+      border-radius: 50%;
+      box-shadow:
+        0 0 0 8px rgba(255,102,0,.20),
+        0 2px 8px rgba(0,0,0,.25);
+    }
+
+    .modal-scroll {
+      max-height: 88vh;
+      overflow-y: auto;
+    }
+
+    button:disabled {
+      opacity: .6;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+
+<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
+
+<!-- =========================================================
+     HEADER
+========================================================= -->
+
+<header class="bg-brand-purple text-white sticky top-0 z-40 shadow-lg">
+
+  <div class="max-w-6xl mx-auto px-5 py-4 flex justify-between items-center">
+
+    <div class="font-black text-3xl tracking-tight">
+      <span>Fidex</span>
+      <span class="text-orange-400">Express</span>
+    </div>
+
+    <button
+      onclick="toggleAdminModal()"
+      class="flex items-center gap-2 text-white hover:opacity-80"
+    >
+      <i class="fa-regular fa-circle-user text-xl"></i>
+
+      <span class="hidden sm:inline text-xs font-bold uppercase">
+        Admin
+      </span>
+    </button>
+
+  </div>
+
+</header>
+
+
+<!-- =========================================================
+     HERO
+========================================================= -->
+
+<section class="bg-white">
+
+  <div class="max-w-6xl mx-auto px-5 py-12">
+
+    <div class="max-w-3xl">
+
+      <h1 class="text-4xl md:text-5xl font-light text-gray-800">
+        Track your shipment
+      </h1>
+
+      <p class="mt-4 text-gray-600">
+        Enter your tracking number to view shipment status,
+        progress and location.
+      </p>
+
+    </div>
+
+
+    <!-- TRACKING FORM -->
+
+    <div class="mt-8 max-w-2xl">
+
+      <form
+        id="trackingForm"
+        class="flex flex-col sm:flex-row gap-2"
+      >
+
+        <input
+          id="trackingInput"
+          type="text"
+          required
+          autocomplete="off"
+          placeholder="Enter tracking number"
+          class="flex-1 border border-gray-300 rounded-lg px-4 py-4 focus:outline-none focus:ring-2 focus:ring-purple-600"
+        >
+
+        <button
+          id="submitBtn"
+          type="submit"
+          class="bg-brand-orange text-white font-bold px-8 py-4 rounded-lg hover-brand-orange transition"
+        >
+
+          <span id="submitText">
+            TRACK
+          </span>
+
+          <i
+            id="submitIcon"
+            class="fa-solid fa-magnifying-glass ml-2"
+          ></i>
+
+        </button>
+
+      </form>
+
+    </div>
+
+  </div>
+
+</section>
+
+
+<!-- =========================================================
+     MAIN
+========================================================= -->
+
+<main class="max-w-6xl mx-auto w-full px-5 pb-16">
+
+  <!-- ERROR -->
+
+  <div
+    id="errorMessage"
+    class="hidden mb-6 bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded"
+  ></div>
+
+
+  <!-- CUSTOMER DASHBOARD -->
+
+  <section
+    id="resultsCard"
+    class="hidden"
+  >
+
+    <div class="bg-white rounded-2xl shadow-lg border overflow-hidden">
+
+      <!-- SUMMARY -->
+
+      <div class="bg-gray-50 p-6 md:p-8 border-b">
+
+        <div class="flex flex-col md:flex-row md:justify-between gap-5">
+
+          <div>
+
+            <p class="text-xs font-bold text-gray-400 uppercase">
+              Tracking Number
+            </p>
+
+            <h2
+              id="displayTrackingNum"
+              class="font-mono text-xl font-black text-brand-purple mt-1"
+            >
+              ---
+            </h2>
+
+          </div>
+
+
+          <div>
+
+            <p class="text-xs font-bold text-gray-400 uppercase">
+              Status
+            </p>
+
+            <span
+              id="statusBadge"
+              class="inline-flex mt-2 px-4 py-2 rounded-full bg-green-100 text-green-800 text-xs font-black uppercase"
+            >
+              IN TRANSIT
+            </span>
+
+          </div>
+
+        </div>
+
+
+        <!-- ROUTE -->
+
+        <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+
+          <div class="bg-white border rounded-xl p-4">
+
+            <div class="text-xs text-gray-400 font-bold uppercase">
+              Origin
+            </div>
+
+            <div
+              id="originText"
+              class="font-bold mt-1"
+            >
+              ---
+            </div>
+
+          </div>
+
+
+          <div class="hidden md:flex items-center justify-center">
+
+            <div class="w-full relative">
+
+              <div class="h-1 bg-gray-200 rounded-full"></div>
+
+              <div
+                class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-3"
+              >
+                🚚
+              </div>
+
+            </div>
+
+          </div>
+
+
+          <div class="bg-white border rounded-xl p-4">
+
+            <div class="text-xs text-gray-400 font-bold uppercase">
+              Destination
+            </div>
+
+            <div
+              id="destinationText"
+              class="font-bold mt-1"
+            >
+              ---
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <!-- CURRENT LOCATION -->
+
+        <div class="mt-5 bg-purple-50 border border-purple-200 rounded-xl p-5">
+
+          <div class="flex items-center gap-3">
+
+            <div class="w-10 h-10 bg-brand-purple rounded-full flex items-center justify-center text-white">
+              <i class="fa-solid fa-location-dot"></i>
+            </div>
+
+            <div>
+
+              <div class="text-xs font-bold text-brand-purple uppercase">
+                Current Shipment Location
+              </div>
+
+              <div
+                id="currentLocationSub"
+                class="font-black text-lg"
+              >
+                ---
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <!-- DELIVERY -->
+
+        <div class="mt-5 text-center">
+
+          <div class="text-xs font-bold text-gray-400 uppercase">
+            Estimated Delivery
+          </div>
+
+          <div
+            id="estimatedDeliveryText"
+            class="text-lg font-black mt-1"
+          >
+            ---
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <!-- MAP BUTTON -->
+
+      <div class="p-5 border-b bg-white">
+
+        <button
+          onclick="toggleMapModal()"
+          class="w-full bg-brand-purple text-white py-4 rounded-xl font-bold flex justify-center items-center gap-3 hover:opacity-90"
+        >
+
+          <i class="fa-solid fa-map-location-dot text-orange-400"></i>
+
+          View Shipment Location
+
+        </button>
+
+      </div>
+
+
+      <!-- PROGRESS -->
+
+      <div class="p-6 md:p-8">
+
+        <h3 class="font-black uppercase text-sm mb-6">
+          Shipment Progress
+        </h3>
+
+        <div
+          id="progressSteps"
+          class="space-y-7 relative"
+        ></div>
+
+
+        <!-- HISTORY -->
+
+        <div class="mt-10 pt-6 border-t">
+
+          <h3 class="font-black uppercase text-sm mb-5">
+            Tracking History
+          </h3>
+
+          <div
+            id="historyLogs"
+            class="space-y-3"
+          ></div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </section>
+
+</main>
+
+
+<!-- =========================================================
+     MAP MODAL
+========================================================= -->
+
+<div
+  id="mapModal"
+  class="hidden fixed inset-0 bg-black/70 z-50 p-4 flex items-center justify-center"
+>
+
+  <div class="bg-white rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl">
+
+    <div class="bg-brand-purple text-white p-4 flex justify-between items-center">
+
+      <div class="font-bold flex items-center gap-2">
+
+        <i class="fa-solid fa-location-dot text-orange-400"></i>
+
+        Shipment Location
+
+      </div>
+
+      <button
+        onclick="closeMapModal()"
+        class="text-xl"
+      >
+        ✕
+      </button>
+
+    </div>
+
+
+    <div class="p-4">
+
+      <div id="map"></div>
+
+      <div
+        id="mapInfo"
+        class="mt-3 text-center text-xs text-gray-500"
+      >
+        Shipment route
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<!-- =========================================================
+     ADMIN MODAL
+========================================================= -->
+
+<div
+  id="adminModal"
+  class="hidden fixed inset-0 bg-black/70 z-50 p-4 flex items-center justify-center"
+>
+
+  <div class="bg-white rounded-2xl w-full max-w-xl shadow-2xl modal-scroll">
+
+    <div class="bg-brand-purple text-white p-5 flex justify-between items-center">
+
+      <div class="font-bold">
+        Admin Shipment Control
+      </div>
+
+      <button onclick="toggleAdminModal()">
+        ✕
+      </button>
+
+    </div>
+
+
+    <!-- LOGIN -->
+
+    <div
+      id="adminLoginFormView"
+      class="p-6"
+    >
+
+      <h3 class="font-black text-lg">
+        Admin Login
+      </h3>
+
+      <p class="text-sm text-gray-500 mt-2">
+        Sign in to manage shipment records.
+      </p>
+
+      <div
+        id="adminAuthError"
+        class="hidden mt-4 bg-red-50 text-red-700 p-3 rounded text-sm font-bold"
+      ></div>
+
+
+      <label class="block text-xs font-bold uppercase mt-6 mb-2">
+        Password
+      </label>
+
+      <input
+        id="adminPasswordInput"
+        type="password"
+        autocomplete="current-password"
+        placeholder="Enter admin password"
+        class="w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-600"
+      >
+
+
+      <button
+        onclick="handleAdminLogin()"
+        class="w-full bg-brand-orange text-white font-bold py-3 rounded-lg mt-4"
+      >
+        LOGIN
+      </button>
+
+    </div>
+
+
+    <!-- ADMIN PANEL -->
+
+    <div
+      id="adminPanelView"
+      class="hidden p-6"
+    >
+
+      <div class="flex justify-between items-center mb-6">
+
+        <div>
+
+          <div class="text-xs text-green-600 font-bold">
+            ● ADMIN SESSION ACTIVE
+          </div>
+
+        </div>
+
+        <button
+          onclick="handleAdminLogout()"
+          class="text-red-600 text-xs font-bold"
+        >
+          LOGOUT
+        </button>
+
+      </div>
+
+
+      <!-- PACKAGE FORM -->
+
+      <form
+        id="adminUpdateForm"
+        onsubmit="savePackageData(event)"
+        class="space-y-4"
+      >
+
+        <div>
+
+          <label class="text-xs font-bold uppercase">
+            Tracking Number
+          </label>
+
+          <input
+            id="admTrackingNum"
+            required
+            class="w-full border rounded-lg px-3 py-3 mt-1 uppercase"
+            placeholder="FDX123456"
+          >
+
+        </div>
+
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+          <div>
+
+            <label class="text-xs font-bold uppercase">
+              Origin
+            </label>
+
+            <input
+              id="admOrigin"
+              required
+              class="w-full border rounded-lg px-3 py-3 mt-1"
+              placeholder="Lagos, Nigeria"
+            >
+
+          </div>
+
+
+          <div>
+
+            <label class="text-xs font-bold uppercase">
+              Destination
+            </label>
+
+            <input
+              id="admDestination"
+              required
+              class="w-full border rounded-lg px-3 py-3 mt-1"
+              placeholder="New York, USA"
+            >
+
+          </div>
+
+        </div>
+
+
+        <div>
+
+          <label class="text-xs font-bold uppercase">
+            Current Location
+          </label>
+
+          <input
+            id="admCurrentLoc"
+            required
+            class="w-full border rounded-lg px-3 py-3 mt-1"
+            placeholder="London Hub, UK"
+          >
+
+        </div>
+
+
+        <!-- COORDINATES -->
+
+        <div class="border rounded-xl p-4 bg-gray-50">
+
+          <div class="font-bold text-sm">
+            Map Coordinates
+          </div>
+
+          <p class="text-xs text-gray-500 mt-1">
+            Enter the current shipment latitude and longitude.
+            If left blank, the system will try to find the location automatically.
+          </p>
+
+
+          <div class="grid grid-cols-2 gap-3 mt-3">
+
+            <div>
+
+              <label class="text-xs font-bold">
+                Latitude
+              </label>
+
+              <input
+                id="admLatitude"
+                type="number"
+                step="any"
+                class="w-full border rounded-lg px-3 py-2 mt-1"
+                placeholder="51.5074"
+              >
+
+            </div>
+
+
+            <div>
+
+              <label class="text-xs font-bold">
+                Longitude
+              </label>
+
+              <input
+                id="admLongitude"
+                type="number"
+                step="any"
+                class="w-full border rounded-lg px-3 py-2 mt-1"
+                placeholder="-0.1278"
+              >
+
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+          <div>
+
+            <label class="text-xs font-bold uppercase">
+              Status
+            </label>
+
+            <select
+              id="admStatus"
+              class="w-full border rounded-lg px-3 py-3 mt-1 bg-white"
+            >
+
+              <option value="Registered">
+                Registered
+              </option>
+
+              <option value="Picked Up">
+                Picked Up
+              </option>
+
+              <option value="Departed Origin">
+                Departed Origin
+              </option>
+
+              <option value="In Transit">
+                In Transit
+              </option>
+
+              <option value="Arrived at Destination">
+                Arrived at Destination
+              </option>
+
+              <option value="Out for Delivery">
+                Out for Delivery
+              </option>
+
+              <option value="Delivered">
+                Delivered
+              </option>
+
+            </select>
+
+          </div>
+
+
+          <div>
+
+            <label class="text-xs font-bold uppercase">
+              Estimated Delivery
+            </label>
+
+            <input
+              id="admEstDelivery"
+              required
+              class="w-full border rounded-lg px-3 py-3 mt-1"
+              placeholder="August 28, 2026"
+            >
+
+          </div>
+
+        </div>
+
+
+        <button
+          type="submit"
+          class="w-full bg-brand-purple text-white font-bold py-3 rounded-lg"
+        >
+          SAVE SHIPMENT
+        </button>
+
+      </form>
+
+
+      <div
+        id="adminSaveSuccess"
+        class="hidden mt-4 bg-green-100 text-green-800 p-3 rounded-lg text-sm font-bold text-center"
+      >
+        Shipment saved successfully.
+      </div>
+
+
+      <!-- PACKAGE LIST -->
+
+      <div class="mt-8 pt-6 border-t">
+
+        <h3 class="font-black text-sm uppercase mb-4">
+          Registered Shipments
+        </h3>
+
+        <div
+          id="adminPackageList"
+          class="space-y-2"
+        ></div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<!-- =========================================================
+     FOOTER
+========================================================= -->
+
+<footer class="mt-auto bg-gray-100 border-t py-8">
+
+  <div class="max-w-6xl mx-auto px-5 text-center">
+
+    <div class="font-black text-brand-purple">
+      Fidex Express
+    </div>
+
+    <p class="text-xs text-gray-500 mt-2">
+      Shipment tracking demonstration.
+    </p>
+
+  </div>
+
+</footer>
+
+
+<script>
+
+/* =========================================================
+   CONFIGURATION
+========================================================= */
+
+const API_BASE = "";
+
+const DEMO_ADMIN_PASSWORD = "admin123";
+
+
+/* =========================================================
+   SHIPMENT STEPS
+========================================================= */
+
+const STEPS = [
+  "Registered",
+  "Picked Up",
+  "Departed Origin",
+  "In Transit",
+  "Arrived at Destination",
+  "Out for Delivery",
+  "Delivered"
+];
+
+
+/* =========================================================
+   FALLBACK COORDINATES
+========================================================= */
+
+const FALLBACK_COORDS = {
+
+  "LAGOS": [6.5244, 3.3792],
+
+  "NIGERIA": [9.0820, 8.6753],
+
+  "ABUJA": [9.0765, 7.3986],
+
+  "LONDON": [51.5074, -0.1278],
+
+  "UK": [55.3781, -3.4360],
+
+  "UNITED KINGDOM": [55.3781, -3.4360],
+
+  "PARIS": [48.8566, 2.3522],
+
+  "FRANCE": [46.2276, 2.2137],
+
+  "NEW YORK": [40.7128, -74.0060],
+
+  "USA": [37.0902, -95.7129],
+
+  "UNITED STATES": [37.0902, -95.7129],
+
+  "DUBAI": [25.2048, 55.2708],
+
+  "UAE": [23.4241, 53.8478]
+
+};
+
+
+/* =========================================================
+   GLOBAL STATE
+========================================================= */
+
+let leafletMap = null;
+
+let packageData = null;
+
+let mapMarkers = [];
+
+let movingMarker = null;
+
+let animationTimer = null;
+
+
+/* =========================================================
+   LOCAL DATABASE
+========================================================= */
+
+const DEFAULT_PACKAGES = {
+
+  "FDX123456": {
+
+    tracking_number: "FDX123456",
+
+    origin: "Lagos, Nigeria",
+
+    destination: "New York, USA",
+
+    current_location: "London Hub, UK",
+
+    current_latitude: 51.5074,
+
+    current_longitude: -0.1278,
+
+    status: "In Transit",
+
+    estimated_delivery: "August 28, 2026",
+
+    tracking_history: [
+
+      {
+        status: "Registered",
+        location: "Lagos, Nigeria",
+        description: "Shipment details created",
+        created_at: "August 20, 2026"
+      },
+
+      {
+        status: "Picked Up",
+        location: "Lagos, Nigeria",
+        description: "Package picked up by courier",
+        created_at: "August 21, 2026"
+      },
+
+      {
+        status: "Departed Origin",
+        location: "Lagos, Nigeria",
+        description: "Shipment departed origin facility",
+        created_at: "August 22, 2026"
+      },
+
+      {
+        status: "In Transit",
+        location: "London Hub, UK",
+        description: "Shipment arrived at sorting facility",
+        created_at: "August 23, 2026"
+      }
+
+    ]
+
+  }
+
+};
+
+
+function loadPackages() {
+
+  try {
+
+    const saved =
+      localStorage.getItem("fedex_packages");
+
+    if (saved) {
+
+      return JSON.parse(saved);
+
+    }
+
+  } catch (error) {
+
+    console.error(error);
+
+  }
+
+  localStorage.setItem(
+    "fedex_packages",
+    JSON.stringify(DEFAULT_PACKAGES)
+  );
+
+  return JSON.parse(
+    JSON.stringify(DEFAULT_PACKAGES)
+  );
+
+}
+
+
+let localPackages = loadPackages();
+
+
+function persistPackages() {
+
+  localStorage.setItem(
+    "fedex_packages",
+    JSON.stringify(localPackages)
+  );
+
+}
+
+
+/* =========================================================
+   ADMIN SESSION
+========================================================= */
+
+function isAdminLoggedIn() {
+
+  return sessionStorage.getItem("fidex_admin") === "true";
+
+}
+
+
+function updateAdminView() {
+
+  const login =
+    document.getElementById("adminLoginFormView");
+
+  const panel =
+    document.getElementById("adminPanelView");
+
+  if (isAdminLoggedIn()) {
+
+    login.classList.add("hidden");
+
+    panel.classList.remove("hidden");
+
+    renderAdminPackageList();
+
+  } else {
+
+    login.classList.remove("hidden");
+
+    panel.classList.add("hidden");
+
+  }
+
+}
+
+
+function handleAdminLogin() {
+
+  const password =
+    document.getElementById("adminPasswordInput").value;
+
+  const error =
+    document.getElementById("adminAuthError");
+
+  if (!password) {
+
+    error.textContent =
+      "Please enter your password.";
+
+    error.classList.remove("hidden");
+
+    return;
+
+  }
+
+
+  if (password === DEMO_ADMIN_PASSWORD) {
+
+    sessionStorage.setItem(
+      "fidex_admin",
+      "true"
+    );
+
+    error.classList.add("hidden");
+
+    document.getElementById(
+      "adminPasswordInput"
+    ).value = "";
+
+    updateAdminView();
+
+  } else {
+
+    error.textContent =
+      "Invalid admin password.";
+
+    error.classList.remove("hidden");
+
+  }
+
+}
+
+
+function handleAdminLogout() {
+
+  sessionStorage.removeItem(
+    "fidex_admin"
+  );
+
+  updateAdminView();
+
+}
+
+
+/* =========================================================
+   ADMIN MODAL
+========================================================= */
+
+function toggleAdminModal() {
+
+  const modal =
+    document.getElementById("adminModal");
+
+  modal.classList.toggle("hidden");
+
+  updateAdminView();
+
+}
+
+
+function closeAdminModal() {
+
+  document
+    .getElementById("adminModal")
+    .classList.add("hidden");
+
+}
+
+
+/* =========================================================
+   MAP MODAL
+========================================================= */
+
+function toggleMapModal() {
+
+  const modal =
+    document.getElementById("mapModal");
+
+  if (modal.classList.contains("hidden")) {
+
+    if (!packageData) {
+
+      showError(
+        "Search for a shipment first."
+      );
+
+      return;
+
+    }
+
+    modal.classList.remove("hidden");
+
+    setTimeout(() => {
+
+      initializeMap(packageData);
+
+    }, 250);
+
+  } else {
+
+    closeMapModal();
+
+  }
+
+}
+
+
+function closeMapModal() {
+
+  document
+    .getElementById("mapModal")
+    .classList.add("hidden");
+
+  stopMarkerAnimation();
+
+}
+
+
+/* =========================================================
+   TRACKING STEP
+========================================================= */
+
+function getStepIndex(status) {
+
+  if (!status) return 0;
+
+  const value =
+    status.toLowerCase();
+
+  if (value.includes("delivered"))
+    return 6;
+
+  if (value.includes("out for delivery"))
+    return 5;
+
+  if (value.includes("arrived"))
+    return 4;
+
+  if (value.includes("transit"))
+    return 3;
+
+  if (value.includes("departed"))
+    return 2;
+
+  if (value.includes("picked"))
+    return 1;
+
+  return 0;
+
+}
+
+
+/* =========================================================
+   SAFE TEXT
+========================================================= */
+
+function escapeHtml(value) {
+
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+
+}
+
+
+/* =========================================================
+   GEOCODING
+========================================================= */
+
+async function geocodeLocation(query) {
+
+  if (!query) return null;
+
+
+  const upper =
+    query.toUpperCase();
+
+
+  for (const key of Object.keys(FALLBACK_COORDS)) {
+
+    if (upper.includes(key)) {
+
+      return FALLBACK_COORDS[key];
+
+    }
+
+  }
+
+
+  try {
+
+    const response = await fetch(
+
+      "https://nominatim.openstreetmap.org/search?" +
+
+      new URLSearchParams({
+
+        format: "json",
+
+        limit: "1",
+
+        q: query
+
+      }),
+
+      {
+
+        headers: {
+
+          "Accept":
+            "application/json"
+
+        }
+
+      }
+
+    );
+
+
+    if (!response.ok) {
+
+      return null;
+
+    }
+
+
+    const data =
+      await response.json();
+
+
+    if (data.length) {
+
+      return [
+
+        parseFloat(data[0].lat),
+
+        parseFloat(data[0].lon)
+
+      ];
+
+    }
+
+  } catch (error) {
+
+    console.warn(
+      "Geocoding failed:",
+      error
+    );
+
+  }
+
+
+  return null;
+
+}
+
+
+/* =========================================================
+   COORDINATE RESOLUTION
+========================================================= */
+
+async function resolveCoordinates(pkg) {
+
+  if (
+
+    Number.isFinite(
+      Number(pkg.current_latitude)
+    ) &&
+
+    Number.isFinite(
+      Number(pkg.current_longitude)
+    )
+
+  ) {
+
+    return {
+
+      current: [
+
+        Number(pkg.current_latitude),
+
+        Number(pkg.current_longitude)
+
+      ],
+
+      origin:
+        await geocodeLocation(pkg.origin),
+
+      destination:
+        await geocodeLocation(pkg.destination)
+
+    };
+
+  }
+
+
+  return {
+
+    origin:
+      await geocodeLocation(pkg.origin),
+
+    current:
+      await geocodeLocation(
+        pkg.current_location ||
+        pkg.origin
+      ),
+
+    destination:
+      await geocodeLocation(pkg.destination)
+
+  };
+
+}
+
+
+/* =========================================================
+   MAP
+========================================================= */
+
+async function initializeMap(pkg) {
+
+  const mapElement =
+    document.getElementById("map");
+
+
+  if (!leafletMap) {
+
+    leafletMap = L.map(
+      mapElement,
+      {
+        zoomControl: true
+      }
+    );
+
+
+    L.tileLayer(
+      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      {
+
+        maxZoom: 18,
+
+        attribution:
+          "&copy; OpenStreetMap contributors"
+
+      }
+
+    ).addTo(leafletMap);
+
+  }
+
+
+  leafletMap.invalidateSize();
+
+
+  stopMarkerAnimation();
+
+
+  mapMarkers.forEach(
+    marker => {
+
+      try {
+
+        leafletMap.removeLayer(
+          marker
+        );
+
+      } catch {}
+
+    }
+  );
+
+
+  mapMarkers = [];
+
+
+  const coords =
+    await resolveCoordinates(pkg);
+
+
+  const origin =
+    coords.origin ||
+    [9.0820, 8.6753];
+
+
+  const current =
+    coords.current ||
+    origin;
+
+
+  const destination =
+    coords.destination ||
+    [40.7128, -74.0060];
+
+
+  /* ORIGIN */
+
+  const originMarker =
+    L.marker(origin)
+      .addTo(leafletMap)
+      .bindPopup(
+
+        `<b>Origin</b><br>${escapeHtml(
+          pkg.origin || "Unknown"
+        )}`
+
+      );
+
+
+  /* DESTINATION */
+
+  const destinationMarker =
+    L.marker(destination)
+      .addTo(leafletMap)
+      .bindPopup(
+
+        `<b>Destination</b><br>${escapeHtml(
+          pkg.destination || "Unknown"
+        )}`
+
+      );
+
+
+  /* ROUTE */
+
+  const route =
+    L.polyline(
+
+      [
+        origin,
+        current,
+        destination
+      ],
+
+      {
+
+        color: "#4D148C",
+
+        weight: 4,
+
+        opacity: .8,
+
+        dashArray: "8,8"
+
+      }
+
+    ).addTo(leafletMap);
+
+
+  /* CURRENT TRUCK */
+
+  const truckIcon =
+    L.divIcon({
+
+      html:
+        '<div class="truck-marker">🚚</div>',
+
+      className:
+        "truck-marker-wrapper",
+
+      iconSize: [35, 35],
+
+      iconAnchor: [17, 17]
+
+    });
+
+
+  movingMarker =
+    L.marker(
+      current,
+      {
+        icon: truckIcon
+      }
+    )
+    .addTo(leafletMap)
+    .bindPopup(
+
+      `<b>Current location</b><br>${escapeHtml(
+        pkg.current_location ||
+        "Shipment location"
+      )}`
+
+    );
+
+
+  mapMarkers.push(
+
+    originMarker,
+
+    destinationMarker,
+
+    route,
+
+    movingMarker
+
+  );
+
+
+  /* FIT MAP */
+
+  const bounds =
+    L.latLngBounds([
+
+      origin,
+
+      current,
+
+      destination
+
+    ]);
+
+
+  leafletMap.fitBounds(
+
+    bounds,
+
+    {
+
+      padding:
+        [50, 50]
+
+    }
+
+  );
+
+
+  document.getElementById(
+    "mapInfo"
+  ).textContent =
+    `${pkg.current_location || "Current shipment location"} • ${pkg.status || "In Transit"}`;
+
+
+  /*
+    DEMO MOVEMENT
+
+    This animates the truck between
+    the supplied coordinates.
+
+    It is NOT real GPS.
+  */
+
+  if (
+    pkg.status !== "Delivered" &&
+    pkg.demo_live_tracking !== false
+  ) {
+
+    startDemoMovement(
+
+      origin,
+
+      current,
+
+      destination
+
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   DEMO MOVING TRUCK
+========================================================= */
+
+function interpolatePoint(a, b, progress) {
+
+  return [
+
+    a[0] +
+      (b[0] - a[0]) *
+      progress,
+
+    a[1] +
+      (b[1] - a[1]) *
+      progress
+
+  ];
+
+}
+
+
+function startDemoMovement(
+  origin,
+  current,
+  destination
+) {
+
+  stopMarkerAnimation();
+
+
+  if (!movingMarker) return;
+
+
+  /*
+    First animate current → destination.
+
+    This is visual simulation only.
+  */
+
+  let progress = 0;
+
+
+  animationTimer =
+    setInterval(() => {
+
+      progress += 0.003;
+
+
+      if (progress >= 1) {
+
+        progress = 0;
+
+      }
+
+
+      const position =
+        interpolatePoint(
+
+          current,
+
+          destination,
+
+          progress
+
+        );
+
+
+      movingMarker.setLatLng(
+        position
+      );
+
+
+    }, 100);
+
+}
+
+
+function stopMarkerAnimation() {
+
+  if (animationTimer) {
+
+    clearInterval(
+      animationTimer
+    );
+
+    animationTimer = null;
+
+  }
+
+}
+
+
+/* =========================================================
+   SAVE PACKAGE
+========================================================= */
+
+function savePackageData(event) {
+
+  event.preventDefault();
+
+
+  if (!isAdminLoggedIn()) {
+
+    alert(
+      "Please login as admin first."
+    );
+
+    return;
+
+  }
+
+
+  const tracking =
+    document
+      .getElementById("admTrackingNum")
+      .value
+      .trim()
+      .toUpperCase();
+
+
+  if (!tracking) {
+
+    return;
+
+  }
+
+
+  const oldPackage =
+    localPackages[tracking];
+
+
+  const status =
+    document
+      .getElementById("admStatus")
+      .value;
+
+
+  const location =
+    document
+      .getElementById("admCurrentLoc")
+      .value
+      .trim();
+
+
+  const latitude =
+    document
+      .getElementById("admLatitude")
+      .value;
+
+
+  const longitude =
+    document
+      .getElementById("admLongitude")
+      .value;
+
+
+  let history =
+    Array.isArray(
+      oldPackage?.tracking_history
+    )
+
+      ? [...oldPackage.tracking_history]
+
+      : [];
+
+
+  const locationChanged =
+    oldPackage &&
+    oldPackage.current_location !== location;
+
+
+  const statusChanged =
+    oldPackage &&
+    oldPackage.status !== status;
+
+
+  if (
+    !oldPackage ||
+    locationChanged ||
+    statusChanged
+  ) {
+
+    history.push({
+
+      status,
+
+      location,
+
+      description:
+        oldPackage
+          ? "Shipment information updated"
+          : "Shipment record created",
+
+      created_at:
+        new Date().toLocaleString()
+
+    });
+
+  }
+
+
+  const updated = {
+
+    tracking_number:
+      tracking,
+
+    origin:
+      document
+        .getElementById("admOrigin")
+        .value
+        .trim(),
+
+    destination:
+      document
+        .getElementById("admDestination")
+        .value
+        .trim(),
+
+    current_location:
+      location,
+
+    current_latitude:
+      latitude !== ""
+        ? Number(latitude)
+        : null,
+
+    current_longitude:
+      longitude !== ""
+        ? Number(longitude)
+        : null,
+
+    status,
+
+    estimated_delivery:
+      document
+        .getElementById("admEstDelivery")
+        .value
+        .trim(),
+
+    tracking_history:
+      history,
+
+    /*
+      Visual demo movement enabled.
+    */
+
+    demo_live_tracking: true
+
+  };
+
+
+  localPackages[tracking] =
+    updated;
+
+
+  persistPackages();
+
+
+  packageData =
+    updated;
+
+
+  const success =
+    document.getElementById(
+      "adminSaveSuccess"
+    );
+
+
+  success.textContent =
+    "Shipment saved successfully.";
+
+  success.classList.remove(
+    "hidden"
+  );
+
+
+  renderAdminPackageList();
+
+
+  /*
+    If customer dashboard
+    is currently showing this
+    shipment, update it.
+  */
+
+  if (
+    document
+      .getElementById("displayTrackingNum")
+      .textContent
+      .trim() === tracking
+  ) {
+
+    displayPackage(
+      updated
+    );
+
+  }
+
+
+  setTimeout(() => {
+
+    success.classList.add(
+      "hidden"
+    );
+
+  }, 3000);
+
+}
+
+
+/* =========================================================
+   LOAD PACKAGE INTO ADMIN FORM
+========================================================= */
+
+function editPackage(tracking) {
+
+  const pkg =
+    localPackages[tracking];
+
+  if (!pkg) return;
+
+
+  document.getElementById(
+    "admTrackingNum"
+  ).value =
+    pkg.tracking_number || "";
+
+
+  document.getElementById(
+    "admOrigin"
+  ).value =
+    pkg.origin || "";
+
+
+  document.getElementById(
+    "admDestination"
+  ).value =
+    pkg.destination || "";
+
+
+  document.getElementById(
+    "admCurrentLoc"
+  ).value =
+    pkg.current_location || "";
+
+
+  document.getElementById(
+    "admLatitude"
+  ).value =
+    pkg.current_latitude ?? "";
+
+
+  document.getElementById(
+    "admLongitude"
+  ).value =
+    pkg.current_longitude ?? "";
+
+
+  document.getElementById(
+    "admStatus"
+  ).value =
+    pkg.status || "In Transit";
+
+
+  document.getElementById(
+    "admEstDelivery"
+  ).value =
+    pkg.estimated_delivery || "";
+
+}
+
+
+/* =========================================================
+   ADMIN PACKAGE LIST
+========================================================= */
+
+function renderAdminPackageList() {
+
+  const container =
+    document.getElementById(
+      "adminPackageList"
+    );
+
+
+  container.innerHTML = "";
+
+
+  const keys =
+    Object.keys(
+      localPackages
+    );
+
+
+  if (!keys.length) {
+
+    container.innerHTML =
+      `<div class="text-sm text-gray-400">
+        No shipments registered.
+      </div>`;
+
+    return;
+
+  }
+
+
+  keys.forEach(
+    tracking => {
+
+      const pkg =
+        localPackages[tracking];
+
+
+      const row =
+        document.createElement(
+          "div"
+        );
+
+
+      row.className =
+        "border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3";
+
+
+      row.innerHTML = `
+
+        <div>
+
+          <div class="font-mono font-black text-brand-purple">
+            ${escapeHtml(
+              pkg.tracking_number
+            )}
+          </div>
+
+          <div class="text-xs text-gray-500 mt-1">
+            ${escapeHtml(
+              pkg.current_location || ""
+            )}
+          </div>
+
+          <div class="text-xs font-bold mt-1">
+            ${escapeHtml(
+              pkg.status || ""
+            )}
+          </div>
+
+        </div>
+
+        <button
+          onclick="editPackage('${escapeHtml(tracking)}')"
+          class="bg-brand-purple text-white px-4 py-2 rounded-lg text-xs font-bold"
+        >
+          EDIT
+        </button>
+
+      `;
+
+
+      container.appendChild(
+        row
+      );
+
+    }
+
+  );
+
+}
+
+
+/* =========================================================
+   DISPLAY PACKAGE
+========================================================= */
+
+function displayPackage(data) {
+
+  packageData =
+    data;
+
+
+  document.getElementById(
+    "displayTrackingNum"
+  ).textContent =
+    data.tracking_number || "---";
+
+
+  document.getElementById(
+    "originText"
+  ).textContent =
+    `${pkgFlag(data.origin)} ${data.origin || "Origin"}`;
+
+
+  document.getElementById(
+    "destinationText"
+  ).textContent =
+    `${pkgFlag(data.destination)} ${data.destination || "Destination"}`;
+
+
+  document.getElementById(
+    "currentLocationSub"
+  ).textContent =
+    data.current_location ||
+    data.origin ||
+    "Unknown";
+
+
+  document.getElementById(
+    "estimatedDeliveryText"
+  ).textContent =
+    data.estimated_delivery ||
+    "Pending";
+
+
+  const badge =
+    document.getElementById(
+      "statusBadge"
+    );
+
+
+  badge.textContent =
+    data.status ||
+    "In Transit";
+
+
+  badge.className =
+    "inline-flex mt-2 px-4 py-2 rounded-full text-xs font-black uppercase " +
+    getStatusClass(data.status);
+
+
+  renderProgressSteps(
+    data.status
+  );
+
+
+  renderHistoryLogs(
+    data.tracking_history ||
+    data.history ||
+    []
+  );
+
+
+  document
+    .getElementById("resultsCard")
+    .classList.remove(
+      "hidden"
+    );
+
+
+  document
+    .getElementById("resultsCard")
+    .scrollIntoView({
+
+      behavior: "smooth",
+
+      block: "start"
+
+    });
+
+}
+
+
+/* =========================================================
+   STATUS COLOR
+========================================================= */
+
+function getStatusClass(status) {
+
+  const value =
+    String(status || "")
+      .toLowerCase();
+
+
+  if (
+    value.includes("delivered")
+  ) {
+
+    return "bg-green-100 text-green-800";
+
+  }
+
+
+  if (
+    value.includes("out for delivery")
+  ) {
+
+    return "bg-blue-100 text-blue-800";
+
+  }
+
+
+  if (
+    value.includes("transit")
+  ) {
+
+    return "bg-purple-100 text-purple-800";
+
+  }
+
+
+  if (
+    value.includes("departed")
+  ) {
+
+    return "bg-yellow-100 text-yellow-800";
+
+  }
+
+
+  return "bg-gray-100 text-gray-800";
+
+}
+
+
+/* =========================================================
+   PROGRESS
+========================================================= */
+
+function renderProgressSteps(status) {
+
+  const container =
+    document.getElementById(
+      "progressSteps"
+    );
+
+
+  container.innerHTML = "";
+
+
+  const active =
+    getStepIndex(status);
+
+
+  STEPS.forEach(
+    (step, index) => {
+
+      const past =
+        index < active;
+
+
+      const current =
+        index === active;
+
+
+      const item =
+        document.createElement(
+          "div"
+        );
+
+
+      item.className =
+        "flex items-center gap-4 relative min-h-[28px]";
+
+
+      const line =
+        index < STEPS.length - 1
+
+          ? `
+            <div class="step-line ${
+              past || current
+                ? "step-line-active"
+                : ""
+            }"></div>
+          `
+
+          : "";
+
+
+      let dot;
+
+
+      if (past) {
+
+        dot = `
+          <div class="w-6 h-6 rounded-full bg-brand-purple text-white flex items-center justify-center text-xs font-bold z-10">
+            ✓
+          </div>
+        `;
+
+      } else if (current) {
+
+        dot = `
+          <div class="w-6 h-6 rounded-full bg-brand-purple border-4 border-purple-200 z-10"></div>
+        `;
+
+      } else {
+
+        dot = `
+          <div class="w-6 h-6 rounded-full border-2 border-gray-300 bg-white z-10"></div>
+        `;
+
+      }
+
+
+      item.innerHTML = `
+
+        ${line}
+
+        ${dot}
+
+        <span class="${
+          current
+            ? "text-brand-purple font-black"
+            : past
+              ? "text-gray-800 font-bold"
+              : "text-gray-400 font-bold"
+        } text-sm">
+
+          ${escapeHtml(step)}
+
+        </span>
+
+      `;
+
+
+      container.appendChild(
+        item
+      );
+
+    }
+
+  );
+
+}
+
+
+/* =========================================================
+   HISTORY
+========================================================= */
+
+function renderHistoryLogs(history) {
+
+  const container =
+    document.getElementById(
+      "historyLogs"
+    );
+
+
+  container.innerHTML = "";
+
+
+  if (
+    !Array.isArray(history) ||
+    history.length === 0
+  ) {
+
+    container.innerHTML =
+      `<p class="text-sm text-gray-400">
+        No tracking events available.
+      </p>`;
+
+    return;
+
+  }
+
+
+  [...history]
+    .reverse()
+    .forEach(
+      event => {
+
+        const div =
+          document.createElement(
+            "div"
+          );
+
+
+        div.className =
+          "border rounded-xl p-4 bg-gray-50";
+
+
+        div.innerHTML = `
+
+          <div class="flex justify-between gap-3">
+
+            <div>
+
+              <div class="font-black text-sm">
+                ${escapeHtml(
+                  event.status ||
+                  "Update"
+                )}
+              </div>
+
+              <div class="text-xs text-brand-purple font-bold mt-1">
+                ${escapeHtml(
+                  event.location || ""
+                )}
+              </div>
+
+            </div>
+
+            <div class="text-[10px] text-gray-400 text-right">
+              ${escapeHtml(
+                event.created_at || ""
+              )}
+            </div>
+
+          </div>
+
+          <div class="text-xs text-gray-600 mt-2">
+            ${escapeHtml(
+              event.description || ""
+            )}
+          </div>
+
+        `;
+
+
+        container.appendChild(
+          div
+        );
+
+      }
+
+    );
+
+}
+
+
+/* =========================================================
+   TRACKING API
+========================================================= */
+
+async function getPackageFromAPI(
+  tracking
+) {
+
+  try {
+
+    const response =
+      await fetch(
+
+        `${API_BASE}/api/track/${encodeURIComponent(tracking)}`,
+
+        {
+
+          method: "GET",
+
+          cache: "no-store",
+
+          headers: {
+
+            "Accept":
+              "application/json"
+
+          }
+
+        }
+
+      );
+
+
+    if (!response.ok) {
+
+      return null;
+
+    }
+
+
+    const data =
+      await response.json();
+
+
+    if (
+      !data ||
+      typeof data !== "object"
+    ) {
+
+      return null;
+
+    }
+
+
+    return data;
+
+  } catch (error) {
+
+    console.warn(
+      "API unavailable:",
+      error
+    );
+
+    return null;
+
+  }
+
+}
+
+
+/* =========================================================
+   TRACKING FORM
+========================================================= */
+
+document
+  .getElementById("trackingForm")
+  .addEventListener(
+    "submit",
+    async event => {
+
+      event.preventDefault();
+
+
+      const input =
+        document
+          .getElementById(
+            "trackingInput"
+          )
+          .value
+          .trim()
+          .toUpperCase();
+
+
+      const errorBox =
+        document.getElementById(
+          "errorMessage"
+        );
+
+
+      const button =
+        document.getElementById(
+          "submitBtn"
+        );
+
+
+      const text =
+        document.getElementById(
+          "submitText"
+        );
+
+
+      const icon =
+        document.getElementById(
+          "submitIcon"
+        );
+
+
+      errorBox.classList.add(
+        "hidden"
+      );
+
+
+      if (!input) {
+
+        showError(
+          "Please enter a tracking number."
+        );
+
+        return;
+
+      }
+
+
+      button.disabled = true;
+
+      text.textContent =
+        "SEARCHING";
+
+      icon.className =
+        "fa-solid fa-spinner fa-spin ml-2";
+
+
+      try {
+
+        let data =
+          await getPackageFromAPI(
+            input
+          );
+
+
+        /*
+          Local fallback.
+        */
+
+        if (!data) {
+
+          data =
+            localPackages[input];
+
+        }
+
+
+        if (!data) {
+
+          throw new Error(
+            "Tracking number not found."
+          );
+
+        }
+
+
+        displayPackage(
+          data
+        );
+
+      } catch (error) {
+
+        showError(
+          error.message ||
+          "Unable to load shipment."
+        );
+
+      } finally {
+
+        button.disabled =
+          false;
+
+        text.textContent =
+          "TRACK";
+
+        icon.className =
+          "fa-solid fa-magnifying-glass ml-2";
+
+      }
+
+    }
+
+  );
+
+
+/* =========================================================
+   ERROR
+========================================================= */
+
+function showError(message) {
+
+  const box =
+    document.getElementById(
+      "errorMessage"
+    );
+
+
+  box.textContent =
+    message;
+
+
+  box.classList.remove(
+    "hidden"
+  );
+
+}
+
+
+/* =========================================================
+   FLAGS
+========================================================= */
+
+function pkgFlag(location) {
+
+  if (!location) {
+
+    return "📍";
+
+  }
+
+
+  const value =
+    location.toLowerCase();
+
+
+  if (
+    value.includes("nigeria") ||
+    value.includes("lagos") ||
+    value.includes("abuja")
+  ) {
+
+    return "🇳🇬";
+
+  }
+
+
+  if (
+    value.includes("london") ||
+    value.includes("uk") ||
+    value.includes("united kingdom")
+  ) {
+
+    return "🇬🇧";
+
+  }
+
+
+  if (
+    value.includes("new york") ||
+    value.includes("usa") ||
+    value.includes("united states")
+  ) {
+
+    return "🇺🇸";
+
+  }
+
+
+  if (
+    value.includes("france") ||
+    value.includes("paris")
+  ) {
+
+    return "🇫🇷";
+
+  }
+
+
+  if (
+    value.includes("dubai") ||
+    value.includes("uae")
+  ) {
+
+    return "🇦🇪";
+
+  }
+
+
+  return "📍";
+
+}
+
+
+/* =========================================================
+   ENTER KEY ADMIN LOGIN
+========================================================= */
+
+document
+  .getElementById(
+    "adminPasswordInput"
+  )
+  .addEventListener(
+    "keydown",
+    event => {
+
+      if (
+        event.key === "Enter"
+      ) {
+
+        handleAdminLogin();
+
+      }
+
+    }
+  );
+
+
+/* =========================================================
+   INITIALIZATION
+========================================================= */
+
+document.addEventListener(
+  "DOMContentLoaded",
+  () => {
+
+    updateAdminView();
+
+    renderAdminPackageList();
+
+  }
+);
+
+
+/* =========================================================
+   ESCAPE KEY FOR MODALS
+========================================================= */
+
+document.addEventListener(
+  "keydown",
+  event => {
+
+    if (
+      event.key !== "Escape"
+    ) {
+
+      return;
+
+    }
+
+
+    closeMapModal();
+
+    closeAdminModal();
+
+  }
+);
+
+</script>
+
+</body>
+</html>
