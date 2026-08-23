@@ -1,0 +1,91 @@
+<script>
+    // Leave as "" if backend and frontend are on the same Vercel domain, 
+    // or set to "https://your-backend-api.vercel.app"
+    const API_BASE = ""; 
+
+    // Helper to retrieve saved admin credentials and format headers
+    function getAuthHeaders() {
+        return {
+            "Content-Type": "application/json",
+            "X-Admin-Email": localStorage.getItem("adminEmail") || "",
+            "X-Admin-Password": localStorage.getItem("adminPassword") || ""
+        };
+    }
+
+    // 1. Admin Login
+    async function handleLogin() {
+        const email = document.getElementById("username").value.trim();
+        const password = document.getElementById("password").value.trim();
+
+        try {
+            const res = await fetch(`${API_BASE}/api/admin/login`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-Admin-Email": email,
+                    "X-Admin-Password": password
+                }
+            });
+
+            const data = await res.json();
+
+            if (res.ok && data.success) {
+                // Save credentials for subsequent requests
+                localStorage.setItem("adminEmail", email);
+                localStorage.setItem("adminPassword", password);
+                alert("Login successful!");
+                loadAdminPackages();
+            } else {
+                alert(data.detail || data.message || "Login failed");
+            }
+        } catch (err) {
+            console.error("Login Error:", err);
+            alert("Connection error. Check console or API URL.");
+        }
+    }
+
+    // 2. Fetch All Packages (Admin)
+    async function loadAdminPackages() {
+        const tbody = document.getElementById("packageTableBody");
+        tbody.innerHTML = "<tr><td colspan='3'>Loading...</td></tr>";
+
+        try {
+            const res = await fetch(`${API_BASE}/api/admin/packages`, {
+                method: "GET",
+                headers: getAuthHeaders()
+            });
+
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.detail || "Failed to load packages");
+            }
+
+            const data = await res.json();
+            const packages = data.packages || [];
+
+            if (packages.length === 0) {
+                tbody.innerHTML = "<tr><td colspan='3'>No packages found.</td></tr>";
+                return;
+            }
+
+            tbody.innerHTML = packages.map(pkg => `
+                <tr>
+                    <td>${pkg.tracking_number}</td>
+                    <td>${pkg.status}</td>
+                    <td>${pkg.recipient_name} (${pkg.destination})</td>
+                </tr>
+            `).join('');
+
+        } catch (err) {
+            console.error("Error loading packages:", err);
+            tbody.innerHTML = `<tr><td colspan='3' style='color:red;'>Error: ${err.message}</td></tr>`;
+        }
+    }
+
+    // Run automatically if credentials exist
+    window.addEventListener("DOMContentLoaded", () => {
+        if (localStorage.getItem("adminEmail")) {
+            loadAdminPackages();
+        }
+    });
+</script>
