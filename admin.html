@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fidex Express | Admin Dashboard</title>
+
+<style>
+* { box-sizing: border-box; }
+body {
+    margin: 0; padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: #f3f4f6; color: #111827;
+}
+header {
+    background: #0f172a; color: white; padding: 16px 20px;
+    display: flex; justify-content: space-between; align-items: center;
+    position: sticky; top: 0; z-index: 20;
+}
+.logo { font-size: 22px; font-weight: 900; font-style: italic; }
+.logo span {
+    background: #f97316; padding: 3px 7px; border-radius: 5px;
+    font-size: 10px; margin-left: 5px; font-style: normal;
+}
+.container { width: 100%; max-width: 1150px; margin: auto; padding: 20px; }
+.card {
+    background: white; border-radius: 12px; padding: 20px;
+    margin-bottom: 20px; box-shadow: 0 3px 15px rgba(0,0,0,.07);
+}
+h1 { margin: 0 0 6px; }
+h2 { margin-top: 0; }
+.subtitle { color: #64748b; margin-top: 0; }
+.grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+@media(max-width:700px) {
+    .grid { grid-template-columns: 1fr; }
+    .container { padding: 12px; }
+    header { padding: 14px; }
+}
+label { display: block; font-weight: 700; font-size: 14px; margin-bottom: 5px; }
+input, select, textarea, button { width: 100%; font-family: inherit; font-size: 15px; }
+input, select, textarea {
+    padding: 12px; border: 1px solid #d1d5db; border-radius: 7px;
+    margin-bottom: 14px; background: white;
+}
+input:focus, select:focus, textarea:focus {
+    outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+}
+textarea { min-height: 90px; resize: vertical; }
+button {
+    border: 0; border-radius: 7px; padding: 12px;
+    font-weight: 700; cursor: pointer; color: white; background: #2563eb; margin-bottom: 10px;
+}
+button:hover { opacity: .92; }
+button:disabled { opacity: .55; cursor: not-allowed; }
+.btn-orange { background: #f97316; }
+.btn-green { background: #16a34a; }
+.btn-red { background: #dc2626; }
+.btn-gray { background: #475569; }
+.btn-blue { background: #2563eb; }
+.btn-small { width: auto; padding: 6px 12px; font-size: 13px; margin: 2px; }
+.hidden { display: none !important; }
+.message { padding: 13px; border-radius: 8px; margin-bottom: 15px; font-weight: 600; line-height: 1.5; }
+.success { background: #dcfce7; color: #166534; }
+.error { background: #fee2e2; color: #991b1b; }
+.tracking-box {
+    background: #eff6ff; border: 2px dashed #2563eb; padding: 20px;
+    border-radius: 10px; text-align: center; margin-top: 15px;
+}
+.tracking-number { font-size: 28px; font-weight: 900; color: #1d4ed8; letter-spacing: 1px; margin: 8px 0 14px; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; min-width: 850px; }
+th, td { padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: left; vertical-align: middle; }
+th { background: #f8fafc; font-size: 13px; }
+.status {
+    display: inline-block; padding: 5px 9px; border-radius: 20px;
+    background: #dbeafe; color: #1d4ed8; font-size: 12px; font-weight: 700;
+}
+.status-delivered { background: #dcfce7; color: #166534; }
+.status-transit { background: #fef3c7; color: #92400e; }
+.admin-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 15px; }
+.admin-actions button { width: auto; margin: 0; }
+.logout { width: auto; margin: 0; padding: 9px 14px; }
+.small { color: #64748b; font-size: 13px; }
+.required { color: #dc2626; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+@media(max-width:600px) { .stats { grid-template-columns: 1fr; } }
+.stat { background: white; padding: 18px; border-radius: 10px; box-shadow: 0 3px 12px rgba(0,0,0,.06); }
+.stat-title { color: #64748b; font-size: 13px; font-weight: 700; }
+.stat-value { font-size: 28px; font-weight: 900; margin-top: 5px; }
+.loading { text-align: center; padding: 25px; color: #64748b; }
+.modal {
+    position: fixed; inset: 0; background: rgba(15,23,42,.65);
+    display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 100;
+}
+.modal-content { background: white; width: 100%; max-width: 520px; border-radius: 14px; padding: 22px; max-height: 90vh; overflow-y: auto; }
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+.close-btn { width: auto; background: #e5e7eb; color: #111827; padding: 6px 10px; margin: 0; }
+.history-item { border-left: 3px solid #2563eb; padding: 8px 12px; margin-bottom: 10px; background: #f8fafc; border-radius: 4px; }
+.field-static { padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 14px; font-weight: 600; color: #334155; }
+</style>
+</head>
+<body>
+
+<header>
+    <div class="logo">FIDEX <span>EXPRESS</span></div>
+    <div style="display: flex; gap: 10px; align-items: center;">
+        <a href="/index.html" style="color: white; text-decoration: none; font-size: 13px; font-weight: bold;">🌐 Public Tracker</a>
+        <button id="logoutBtn" class="btn-red logout hidden" onclick="logout()">Logout</button>
+    </div>
+</header>
+
+<div class="container">
+    <h1>👑 Admin Dashboard</h1>
+    <p class="subtitle">Fidex Express central management console</p>
+
+    <!-- LOGIN CARD -->
+    <div id="loginCard" class="card">
+        <h2>🔐 Admin Login</h2>
+        <p class="small">Authenticate to control logistics records.</p>
+        <div id="loginMessage"></div>
+        <label>Admin Email</label>
+        <input type="email" id="adminEmail" placeholder="admin@fidexexpress.com" autocomplete="username">
+        <label>Admin Password</label>
+        <input type="password" id="adminPassword" placeholder="Admin password" autocomplete="current-password">
+        <button id="loginBtn" onclick="handleLogin()">🔐 Login</button>
+    </div>
+
+    <!-- MAIN DASHBOARD -->
+    <div id="dashboard" class="hidden">
+        <!-- STATS -->
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-title">TOTAL PACKAGES</div>
+                <div id="totalPackages" class="stat-value">0</div>
+            </div>
+            <div class="stat">
+                <div class="stat-title">IN TRANSIT</div>
+                <div id="transitPackages" class="stat-value">0</div>
+            </div>
+            <div class="stat">
+                <div class="stat-title">DELIVERED</div>
+                <div id="deliveredPackages" class="stat-value">0</div>
+            </div>
+        </div>
+
+        <!-- REGISTER PACKAGE -->
+        <div class="card">
+            <h2>📦 Register New Shipment</h2>
+            <p class="small">Creates a new package and auto-generates tracking numbers.</p>
+
+            <div class="grid">
+                <div>
+                    <label>Recipient Name <span class="required">*</span></label>
+                    <input id="recipientName" type="text" placeholder="John Doe">
+                </div>
+                <div>
+                    <label>Recipient Email</label>
+                    <input id="recipientEmail" type="email" placeholder="customer@example.com">
+                </div>
+                <div>
+                    <label>Origin / Current Location <span class="required">*</span></label>
+                    <input id="origin" type="text" placeholder="London, United Kingdom">
+                </div>
+                <div>
+                    <label>Destination <span class="required">*</span></label>
+                    <input id="destination" type="text" placeholder="New York, USA">
+                </div>
+                <div>
+                    <label>Package Weight (kg)</label>
+                    <input id="weight" type="number" min="0" step="0.01" placeholder="2.5">
+                </div>
+                <div>
+                    <label>Shipping Service</label>
+                    <select id="shippingService">
+                        <option value="Standard Shipping">Standard Shipping</option>
+                        <option value="International Express">International Express</option>
+                        <option value="Priority Express">Priority Express</option>
+                        <option value="Air Cargo">Air Cargo</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Estimated Delivery Date</label>
+                    <input id="estimatedDelivery" type="text" placeholder="28 August 2026">
+                </div>
+                <div>
+                    <label>Shipping Cost ($)</label>
+                    <input id="shippingCost" type="number" min="0" step="0.01" placeholder="50.00">
+                </div>
+            </div>
+
+            <label>Package Description</label>
+            <textarea id="packageDescription" placeholder="Electronics / Documents..."></textarea>
+            <button id="registerBtn" class="btn-orange" onclick="registerPackage()">📦 REGISTER SHIPMENT</button>
+
+            <div id="trackingResult" class="tracking-box hidden">
+                <div>✅ Shipment Successfully Created</div>
+                <div class="small">Assigned Tracking Number</div>
+                <div id="newTrackingNumber" class="tracking-number"></div>
+                <button class="btn-green" onclick="copyTrackingNumber()">📋 Copy Tracking Number</button>
+            </div>
+        </div>
+
+        <!-- PACKAGES TABLE -->
+        <div class="card">
+            <div class="admin-actions">
+                <button class="btn-gray" onclick="loadAdminPackages()">🔄 Refresh List</button>
+            </div>
+            <h2>📋 Registered Shipments</h2>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tracking #</th>
+                            <th>Status</th>
+                            <th>Recipient</th>
+                            <th>Current Location</th>
+                            <th>Destination</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="packageTableBody">
+                        <tr><td colspan="6" class="loading">Loading packages...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div id="editModal" class="modal hidden">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>✏️ Edit Shipment Status & Location</h2>
+            <button class="close-btn" onclick="closeEditModal()">✕</button>
+        </div>
+
+        <label>Tracking Number</label>
+        <div id="editTrackingNumber" class="field-static"></div>
+
+        <label>Recipient</label>
+        <div id="editRecipient" class="field-static"></div>
+
+        <label>Status</label>
+        <select id="editStatus">
+            <option value="Registered">Registered</option>
+            <option value="Picked Up">Picked Up</option>
+            <option value="Departed Origin">Departed Origin</option>
+            <option value="In Transit">In Transit</option>
+            <option value="Arrived at Destination">Arrived at Destination</option>
+            <option value="Out for Delivery">Out for Delivery</option>
+            <option value="Delivered">Delivered</option>
+        </select>
+
+        <label>Current Location</label>
+        <input id="editLocation" type="text" placeholder="Paris, France">
+
+        <label>Destination</label>
+        <input id="editDestination" type="text" placeholder="New York, USA">
+
+        <label>Tracking Event Description</label>
+        <textarea id="editEvent" placeholder="Package scanned at sorting center in Paris..."></textarea>
+
+        <button id="saveEditBtn" class="btn-green" onclick="saveShipmentChanges()">💾 SAVE CHANGES</button>
+        <button class="btn-gray" onclick="closeEditModal()">Cancel</button>
+    </div>
+</div>
+
+<!-- VIEW DETAILS MODAL -->
+<div id="detailsModal" class="modal hidden">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>📦 Package Details</h2>
+            <button class="close-btn" onclick="closeDetails()">✕</button>
+        </div>
+        <div id="detailsContent"></div>
+    </div>
+</div>
+
+<script>
+const API_BASE = "";
+let currentEditTracking = "";
+
+function escapeHtml(v) {
+    if (!v) return "N/A";
+    return String(v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function escapeJs(v) {
+    return String(v).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
+function getAuthHeaders() {
+    return {
+        "Content-Type": "application/json",
+        "X-Admin-Email": sessionStorage.getItem("adminEmail") || "",
+        "X-Admin-Password": sessionStorage.getItem("adminPassword") || ""
+    };
+}
+
+// Check session on initial load
+window.addEventListener("DOMContentLoaded", () => {
+    if (sessionStorage.getItem("adminEmail") && sessionStorage.getItem("adminPassword")) {
+        document.getElementById("loginCard").classList.add("hidden");
+        document.getElementById("dashboard").classList.remove("hidden");
+        document.getElementById("logoutBtn").classList.remove("hidden");
+        loadAdminPackages();
+    }
+});
+
+async function handleLogin() {
+    const email = document.getElementById("adminEmail").value.trim();
+    const password = document.getElementById("adminPassword").value.trim();
+    const msgBox = document.getElementById("loginMessage");
+    const loginBtn = document.getElementById("loginBtn");
+
+    if (!email || !password) {
+        msgBox.innerHTML = `<div class="message error">Please enter both email and password.</div>`;
+        return;
+    }
+
+    loginBtn.disabled = true;
+    loginBtn.innerText = "Authenticating...";
+    msgBox.innerHTML = "";
+
+    try {
+        const response = await fetch(`${API_BASE}/api/admin/login`, {
+            method: "POST",
+            headers: { 
+                "Content-Type": "application/json", 
+                "X-Admin-Email": email, 
+                "X-Admin-Password": password 
+            }
+        });
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.detail || data.message || "Invalid admin credentials");
+
+        sessionStorage.setItem("adminEmail", email);
+        sessionStorage.setItem("adminPassword", password);
+
+        document.getElementById("loginCard").classList.add("hidden");
+        document.getElementById("dashboard").classList.remove("hidden");
+        document.getElementById("logoutBtn").classList.remove("hidden");
+
+        await loadAdminPackages();
+    } catch(err) {
+        msgBox.innerHTML = `<div class="message error">${escapeHtml(err.message)}</div>`;
+    } finally {
+        loginBtn.disabled = false;
+        loginBtn.innerText = "🔐 Login";
+    }
+}
+
+async function registerPackage() {
+    const payload = {
+        recipient_name: document.getElementById("recipientName").value.trim(),
+        recipient_email: document.getElementById("recipientEmail").value.trim() || null,
+        origin: document.getElementById("origin").value.trim(),
+        destination: document.getElementById("destination").value.trim(),
+        package_description: document.getElementById("packageDescription").value.trim() || null,
+        weight: Number(document.getElementById("weight").value) || null,
+        shipping_service: document.getElementById("shippingService").value,
+        shipping_cost: Number(document.getElementById("shippingCost").value) || null,
+        estimated_delivery: document.getElementById("estimatedDelivery").value.trim() || null
+    };
+
+    if (!payload.recipient_name || !payload.origin || !payload.destination) {
+        return alert("Recipient, Origin, and Destination are required.");
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/api/packages`, {
+            method: "POST",
+            headers: getAuthHeaders(),
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Failed to register shipment.");
+
+        document.getElementById("newTrackingNumber").innerText = data.tracking_number;
+        document.getElementById("trackingResult").classList.remove("hidden");
+        await loadAdminPackages();
+    } catch(err) { alert(err.message); }
+}
+
+function copyTrackingNumber() {
+    const num = document.getElementById("newTrackingNumber").innerText;
+    navigator.clipboard.writeText(num);
+    alert(`Copied tracking number: ${num}`);
+}
+
+async function loadAdminPackages() {
+    const tbody = document.getElementById("packageTableBody");
+    try {
+        const res = await fetch(`${API_BASE}/api/admin/packages`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        let packages = Array.isArray(data) ? data : data.packages || [];
+
+        document.getElementById("totalPackages").innerText = packages.length;
+        document.getElementById("transitPackages").innerText = packages.filter(p => (p.status||"").toLowerCase().includes("transit")).length;
+        document.getElementById("deliveredPackages").innerText = packages.filter(p => (p.status||"").toLowerCase().includes("delivered")).length;
+
+        if (packages.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="loading">No shipments found.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = packages.map(pkg => `
+            <tr>
+                <td><strong>${escapeHtml(pkg.tracking_number)}</strong></td>
+                <td><span class="status">${escapeHtml(pkg.status)}</span></td>
+                <td>${escapeHtml(pkg.recipient_name)}</td>
+                <td>${escapeHtml(pkg.current_location || pkg.origin)}</td>
+                <td>${escapeHtml(pkg.destination)}</td>
+                <td>
+                    <button class="btn-small btn-blue" onclick="viewPackage('${escapeJs(pkg.tracking_number)}')">👁 View</button>
+                    <button class="btn-small btn-green" onclick="openEditModal('${escapeJs(pkg.tracking_number)}', '${escapeJs(pkg.recipient_name)}', '${escapeJs(pkg.status)}', '${escapeJs(pkg.current_location || pkg.origin)}', '${escapeJs(pkg.destination)}')">✏️ Edit</button>
+                </td>
+            </tr>
+        `).join("");
+    } catch(err) {
+        tbody.innerHTML = `<tr><td colspan="6" style="color:red; padding:15px; text-align:center;">Failed to load shipments. Verify authorization credentials.</td></tr>`;
+    }
+}
+
+function openEditModal(tracking, recipient, status, location, destination) {
+    currentEditTracking = tracking;
+    document.getElementById("editTrackingNumber").innerText = tracking;
+    document.getElementById("editRecipient").innerText = recipient;
+    document.getElementById("editStatus").value = status;
+    document.getElementById("editLocation").value = location;
+    document.getElementById("editDestination").value = destination;
+    document.getElementById("editEvent").value = "";
+    document.getElementById("editModal").classList.remove("hidden");
+}
+
+function closeEditModal() { document.getElementById("editModal").classList.add("hidden"); }
+
+async function saveShipmentChanges() {
+    const payload = {
+        status: document.getElementById("editStatus").value,
+        current_location: document.getElementById("editLocation").value.trim(),
+        destination: document.getElementById("editDestination").value.trim(),
+        description: document.getElementById("editEvent").value.trim() || null
+    };
+
+    try {
+        const res = await fetch(`${API_BASE}/api/admin/packages/${encodeURIComponent(currentEditTracking)}`, {
+            method: "PATCH",
+            headers: getAuthHeaders(),
+            body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error("Update failed.");
+        alert("✅ Package updated successfully!");
+        closeEditModal();
+        await loadAdminPackages();
+    } catch(err) { alert(err.message); }
+}
+
+async function viewPackage(tracking) {
+    const content = document.getElementById("detailsContent");
+    document.getElementById("detailsModal").classList.remove("hidden");
+    content.innerHTML = `<div class="loading">Loading shipment log details...</div>`;
+
+    try {
+        const res = await fetch(`${API_BASE}/api/admin/packages/${encodeURIComponent(tracking)}`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        const history = data.history || data.tracking_history || [];
+
+        content.innerHTML = `
+            <p><strong>Tracking Number:</strong> ${escapeHtml(data.tracking_number)}</p>
+            <p><strong>Status:</strong> ${escapeHtml(data.status)}</p>
+            <p><strong>Recipient:</strong> ${escapeHtml(data.recipient_name)}</p>
+            <p><strong>Origin:</strong> ${escapeHtml(data.origin)}</p>
+            <p><strong>Current Location:</strong> ${escapeHtml(data.current_location || data.origin)}</p>
+            <p><strong>Destination:</strong> ${escapeHtml(data.destination)}</p>
+            <p><strong>Estimated Delivery:</strong> ${escapeHtml(data.estimated_delivery)}</p>
+            <hr>
+            <h3>📍 Timeline Logs</h3>
+            ${history.length === 0 ? '<p class="small">No logs available.</p>' : history.map(h => `
+                <div class="history-item">
+                    <div><strong>${escapeHtml(h.status)}</strong> (${escapeHtml(h.location)})</div>
+                    <div>${escapeHtml(h.description)}</div>
+                    <div style="font-size:11px; color:#666;">${escapeHtml(h.created_at)}</div>
+                </div>
+            `).join('')}
+        `;
+    } catch(err) { content.innerHTML = `<p style="color:red;">Error loading package timeline details.</p>`; }
+}
+
+function closeDetails() { document.getElementById("detailsModal").classList.add("hidden"); }
+function logout() { sessionStorage.clear(); location.reload(); }
+</script>
+</body>
+</html>
