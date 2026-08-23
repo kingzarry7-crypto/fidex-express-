@@ -1,5 +1,68 @@
-const API_BASE = "";
-/api/admin/login
-/api/packages
-/api/admin/packages
-/api/admin/packages/FDX12345678
+// 1. Set API_BASE to your backend host (e.g., http://localhost:5000 or your live backend URL)
+// Leave as "" ONLY if frontend and backend are hosted on the exact same domain & port.
+const API_BASE = "http://localhost:5000"; 
+
+// Helper function to get saved auth token
+function getAuthHeaders() {
+    const token = localStorage.getItem("adminToken");
+    return {
+        "Content-Type": "application/json",
+        "Authorization": token ? `Bearer ${token}` : ""
+    };
+}
+
+// 2. Admin Login
+async function loginAdmin(username, password) {
+    try {
+        const res = await fetch(`${API_BASE}/api/admin/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+        if (data.token) {
+            localStorage.setItem("adminToken", data.token); // Save auth token
+            alert("Login successful!");
+        } else {
+            alert(data.message || "Login failed");
+        }
+    } catch (err) {
+        console.error("Login error:", err);
+    }
+}
+
+// 3. Public route - Get all public packages
+async function getPublicPackages() {
+    try {
+        const res = await fetch(`${API_BASE}/api/packages`);
+        return await res.json();
+    } catch (err) {
+        console.error("Error fetching packages:", err);
+    }
+}
+
+// 4. Protected route - Get admin package list
+async function getAdminPackages() {
+    try {
+        const res = await fetch(`${API_BASE}/api/admin/packages`, {
+            method: "GET",
+            headers: getAuthHeaders() // Include Auth Token
+        });
+        return await res.json();
+    } catch (err) {
+        console.error("Error fetching admin packages:", err);
+    }
+}
+
+// 5. Protected route - Fetch specific package details (e.g., FDX12345678)
+async function getPackageByTracking(trackingNumber = "FDX12345678") {
+    try {
+        const res = await fetch(`${API_BASE}/api/admin/packages/${trackingNumber}`, {
+            method: "GET",
+            headers: getAuthHeaders() // Include Auth Token
+        });
+        return await res.json();
+    } catch (err) {
+        console.error("Error fetching package details:", err);
+    }
+}
