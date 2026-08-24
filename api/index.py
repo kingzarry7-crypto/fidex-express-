@@ -1,4 +1,7 @@
 import os
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
@@ -46,6 +49,33 @@ app.add_middleware(
 
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "Fedexg217@gmail.com")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
+
+# Email Settings (Set via Environment Variables or defaults)
+SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
+SENDER_EMAIL = os.getenv("SENDER_EMAIL", ADMIN_EMAIL)
+SENDER_PASSWORD = os.getenv("SENDER_PASSWORD", "")  # Use Gmail App Password
+
+def send_email_notification(to_email: str, subject: str, body_html: str):
+    """Sends email asynchronously without crashing main request pipeline."""
+    if not to_email or not SENDER_PASSWORD:
+        print("Email notification skipped: Receiver email or SENDER_PASSWORD missing.")
+        return
+
+    try:
+        msg = MIMEMultipart()
+        msg["From"] = f"Fidex Express <{SENDER_EMAIL}>"
+        msg["To"] = to_email
+        msg["Subject"] = subject
+        msg.attach(MIMEText(body_html, "html"))
+
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SENDER_EMAIL, SENDER_PASSWORD)
+            server.send_message(msg)
+        print(f"Notification email successfully sent to {to_email}")
+    except Exception as e:
+        print("Error sending email notification:", e)
 
 def row_to_dict(cursor, row) -> Optional[Dict[str, Any]]:
     if not row:
@@ -245,6 +275,23 @@ async def create_package(
         description="Shipment registered with Fidex Express."
     )
 
+    # Send confirmation email to recipient
+    if pkg.recipient_email:
+        email_body = f"""
+        <h2>Package Registered - Fidex Express</h2>
+        <p>Hello <strong>{pkg.recipient_name}</strong>,</p>
+        <p>A package has been registered for you.</p>
+        <p><strong>Tracking Code:</strong> {tracking_number}<br>
+        <strong>Origin:</strong> {pkg.origin}<br>
+        <strong>Destination:</strong> {pkg.destination}</p>
+        <p>Thank you for choosing Fidex Express!</p>
+        """
+        send_email_notification(
+            to_email=pkg.recipient_email,
+            subject=f"Shipment Registered: {tracking_number}",
+            body_html=email_body
+        )
+
     return {
         "success": True,
         "message": "Package successfully registered.",
@@ -342,17 +389,18 @@ async def update_package(
     try:
         with conn.cursor() as cursor:
             cursor.execute(
-                "SELECT tracking_number FROM packages WHERE tracking_number = %s",
+                "SELECT tracking_number, recipient_name, recipient_email FROM packages WHERE tracking_number = %s",
                 (clean_tracking,)
             )
-            package = cursor.fetchone()
+            raw_package = cursor.fetchone()
 
-            if not package:
+            if not raw_package:
                 raise HTTPException(
                     status_code=404,
                     detail="Package not found."
                 )
 
+            package = row_to_dict(cursor, raw_package)
             now = datetime.now(timezone.utc).isoformat()
 
             cursor.execute(
@@ -383,6 +431,22 @@ async def update_package(
         update.current_location,
         update.description
     )
+
+    # Send email update to recipient
+    if package and package.get("recipient_email"):
+        update_body = f"""
+        <h2>Shipment Status Update - Fidex Express</h2>
+        <p>Hello <strong>{package.get('recipient_name', 'Customer')}</strong>,</p>
+        <p>Your package status has been updated.</p>
+        <p><strong>Tracking Code:</strong> {clean_tracking}<br>
+        <strong>New Status:</strong> {update.status}<br>
+        <strong>Current Location:</strong> {update.current_location}</p>
+        """
+        send_email_notification(
+            to_email=package.get("recipient_email"),
+            subject=f"Shipment Update: {clean_tracking} - {update.status}",
+            body_html=update_body
+        )
 
     return {
         "success": True,
