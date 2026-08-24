@@ -1,7 +1,5 @@
 import os
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import requests
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
@@ -49,33 +47,88 @@ app.add_middleware(
 
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "Fedexg217@gmail.com")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 
-# Email Settings (Set via Environment Variables or defaults)
-SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
-SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
-SENDER_EMAIL = os.getenv("SENDER_EMAIL", ADMIN_EMAIL)
-SENDER_PASSWORD = os.getenv("SENDER_PASSWORD", "")  # Use Gmail App Password
+# =========================================================
+# RESEND EMAIL NOTIFICATION SYSTEM
+# =========================================================
 
-def send_email_notification(to_email: str, subject: str, body_html: str):
-    """Sends email asynchronously without crashing main request pipeline."""
-    if not to_email or not SENDER_PASSWORD:
-        print("Email notification skipped: Receiver email or SENDER_PASSWORD missing.")
+def send_email_notification(
+    to_email: str, 
+    recipient_name: str, 
+    tracking_number: str, 
+    status: str, 
+    location: str, 
+    est_delivery: Optional[str] = None
+):
+    """Sends clean, styled tracking update emails via Resend HTTP API."""
+    if not RESEND_API_KEY:
+        print("Email skipped: RESEND_API_KEY environment variable is missing.")
         return
 
-    try:
-        msg = MIMEMultipart()
-        msg["From"] = f"Fidex Express <{SENDER_EMAIL}>"
-        msg["To"] = to_email
-        msg["Subject"] = subject
-        msg.attach(MIMEText(body_html, "html"))
+    track_url = f"https://fidex-express-pi.vercel.app/index.html?tracking={tracking_number}"
+    
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f4f4f5; margin: 0; padding: 20px; }}
+        .card {{ max-width: 500px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08); color: #18181b; }}
+        .header {{ background: #0f172a; padding: 24px; text-align: center; color: #ffffff; }}
+        .header h1 {{ margin: 0; font-size: 20px; letter-spacing: 1px; }}
+        .content {{ padding: 24px; }}
+        .status-badge {{ display: inline-block; background: #e0e7ff; color: #3730a3; font-weight: 600; padding: 6px 12px; border-radius: 20px; font-size: 13px; margin-bottom: 16px; }}
+        .info-box {{ background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 16px 0; }}
+        .btn {{ display: block; width: 100%; text-align: center; background: #2563eb; color: #ffffff !important; font-weight: 600; padding: 12px 0; border-radius: 8px; text-decoration: none; margin-top: 20px; }}
+        .footer {{ text-align: center; padding: 16px; font-size: 12px; color: #9ca3af; }}
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <div class="header">
+          <h1>FIDEX EXPRESS</h1>
+        </div>
+        <div class="content">
+          <span class="status-badge">📦 Status: {status}</span>
+          <p style="margin: 0 0 12px 0; font-size: 16px;">Hi <strong>{recipient_name}</strong>,</p>
+          <p style="margin: 0; color: #4b5563; font-size: 14px;">Here is the latest update for your package.</p>
+          
+          <div class="info-box">
+            <div style="font-size: 11px; color: #64748b; text-transform: uppercase; margin-bottom: 8px; font-weight: 700;">Package Details</div>
+            <p style="margin: 4px 0; font-size: 14px;"><strong>Tracking Code:</strong> {tracking_number}</p>
+            <p style="margin: 4px 0; font-size: 14px;"><strong>Current Location:</strong> {location}</p>
+            {"<p style='margin: 4px 0; font-size: 14px;'><strong>Estimated Delivery:</strong> " + str(est_delivery) + "</p>" if est_delivery else ""}
+          </div>
 
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-            server.starttls()
-            server.login(SENDER_EMAIL, SENDER_PASSWORD)
-            server.send_message(msg)
-        print(f"Notification email successfully sent to {to_email}")
+          <a href="{track_url}" class="btn">Track Your Parcel</a>
+        </div>
+        <div class="footer">
+          &copy; Fidex Express Logistics. All rights reserved.
+        </div>
+      </div>
+    </body>
+    </html>
+    """
+
+    payload = {
+        "from": "Fidex Express <onboarding@resend.dev>",
+        "to": [to_email],
+        "subject": f"Shipment Update: {tracking_number} ({status})",
+        "html": html_content
+    }
+
+    headers = {
+        "Authorization": f"Bearer {RESEND_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    try:
+        response = requests.post("https://api.resend.com/emails", json=payload, headers=headers, timeout=10)
+        print(f"Resend Output: {response.status_code} - {response.text}")
     except Exception as e:
-        print("Error sending email notification:", e)
+        print(f"Failed sending email via Resend: {e}")
 
 def row_to_dict(cursor, row) -> Optional[Dict[str, Any]]:
     if not row:
@@ -275,21 +328,15 @@ async def create_package(
         description="Shipment registered with Fidex Express."
     )
 
-    # Send confirmation email to recipient
+    # Send Resend email notification
     if pkg.recipient_email:
-        email_body = f"""
-        <h2>Package Registered - Fidex Express</h2>
-        <p>Hello <strong>{pkg.recipient_name}</strong>,</p>
-        <p>A package has been registered for you.</p>
-        <p><strong>Tracking Code:</strong> {tracking_number}<br>
-        <strong>Origin:</strong> {pkg.origin}<br>
-        <strong>Destination:</strong> {pkg.destination}</p>
-        <p>Thank you for choosing Fidex Express!</p>
-        """
         send_email_notification(
             to_email=pkg.recipient_email,
-            subject=f"Shipment Registered: {tracking_number}",
-            body_html=email_body
+            recipient_name=pkg.recipient_name,
+            tracking_number=tracking_number,
+            status="Registered",
+            location=pkg.origin,
+            est_delivery=pkg.estimated_delivery
         )
 
     return {
@@ -432,20 +479,14 @@ async def update_package(
         update.description
     )
 
-    # Send email update to recipient
+    # Send Resend email notification
     if package and package.get("recipient_email"):
-        update_body = f"""
-        <h2>Shipment Status Update - Fidex Express</h2>
-        <p>Hello <strong>{package.get('recipient_name', 'Customer')}</strong>,</p>
-        <p>Your package status has been updated.</p>
-        <p><strong>Tracking Code:</strong> {clean_tracking}<br>
-        <strong>New Status:</strong> {update.status}<br>
-        <strong>Current Location:</strong> {update.current_location}</p>
-        """
         send_email_notification(
             to_email=package.get("recipient_email"),
-            subject=f"Shipment Update: {clean_tracking} - {update.status}",
-            body_html=update_body
+            recipient_name=package.get("recipient_name", "Customer"),
+            tracking_number=clean_tracking,
+            status=update.status,
+            location=update.current_location
         )
 
     return {
