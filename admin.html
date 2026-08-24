@@ -430,11 +430,33 @@ async function loadAdminPackages() {
                 <td>
                     <button class="btn-small btn-blue" onclick="viewPackage('${escapeJs(pkg.tracking_number)}')">👁 View</button>
                     <button class="btn-small btn-green" onclick="openEditModal('${escapeJs(pkg.tracking_number)}', '${escapeJs(pkg.recipient_name)}', '${escapeJs(pkg.status)}', '${escapeJs(pkg.current_location || pkg.origin)}')">✏️ Edit</button>
+                    <button class="btn-small btn-red" onclick="deletePackage('${escapeJs(pkg.tracking_number)}')">🗑️ Delete</button>
                 </td>
             </tr>
         `).join("");
     } catch(err) {
         tbody.innerHTML = `<tr><td colspan="6" style="color:red; padding:15px; text-align:center;">Failed to load shipments. Verify authorization credentials.</td></tr>`;
+    }
+}
+
+async function deletePackage(tracking) {
+    if (!confirm(`Are you sure you want to delete package ${tracking}? This action cannot be undone.`)) {
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/api/admin/packages/${encodeURIComponent(tracking)}`, {
+            method: "DELETE",
+            headers: getAuthHeaders()
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || data.message || "Failed to delete package.");
+
+        alert(`✅ Package ${tracking} has been deleted.`);
+        await loadAdminPackages();
+    } catch(err) {
+        alert(`Error: ${err.message}`);
     }
 }
 
