@@ -1,0 +1,23 @@
+{
+  "name": "fidex-express",
+  "version": "1.0.0",
+  "description": "Fidex Express - Live package tracking web application",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kingzarry7-crypto/fidex-express-.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/kingzarry7-crypto/fidex-express-/issues"
+  },
+  "homepage": "https://github.com/kingzarry7-crypto/fidex-express-#readme",
+  "dependencies": {
+    "@vercel/speed-insights": "^2.0.0"
+  }
+}
